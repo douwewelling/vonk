@@ -1,0 +1,11 @@
+{
+  "name": "vonk",
+  "version": "1.0.0",
+  "description": "Woordjes leren als een spel: combo's, kisten, activiteitsringen en eindbazen, met slimme herhaling.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs"
+  },
+  "license": "MIT"
+}
