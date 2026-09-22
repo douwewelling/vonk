@@ -13,11 +13,11 @@ export const GOALS = {
   intens: { label: 'Intens', xp: 400, correct: 80, minutes: 25 },
 };
 
-export function makeWord(a, b) {
-  return { id: uid(), a, b, lvl: 0, due: 0, ivl: 0, reps: 0, lapses: 0, right: 0, wrong: 0, last: 0 };
+export function makeWord(a, b, ex = '', exb = '') {
+  return { id: uid(), a, b, ex, exb, lvl: 0, due: 0, ivl: 0, reps: 0, lapses: 0, right: 0, wrong: 0, last: 0 };
 }
 
-export function makeList({ title, langA = 'en', langB = 'nl', pairs = [], sample = false }) {
+export function makeList({ title, langA = 'en', langB = 'nl', pairs = [], sample = false, kind = 'words', showSentences = true, useSentences = true }) {
   return {
     id: uid(),
     title,
@@ -25,10 +25,13 @@ export function makeList({ title, langA = 'en', langB = 'nl', pairs = [], sample
     langB,
     dir: 'mix',
     commaSyn: true,
+    kind,
+    showSentences,
+    useSentences,
     sample,
     createdAt: Date.now(),
     lastPlayed: 0,
-    words: pairs.map((p) => makeWord(p.a, p.b)),
+    words: pairs.map((p) => makeWord(p.a, p.b, p.ex, p.exb)),
   };
 }
 
@@ -98,7 +101,14 @@ function merge(base, saved) {
   out.lists.forEach((l) => {
     l.dir ??= 'mix';
     l.commaSyn ??= true;
+    l.kind ??= 'words';
+    l.useSentences ??= true;
+    l.showSentences ??= true;
     l.words = (l.words || []).map((w) => ({ ...makeWord(w.a, w.b), ...w }));
+    l.words.forEach((w) => {
+      w.ex = w.ex || '';
+      w.exb = w.exb || '';
+    });
   });
   if (!Array.isArray(out.inventory.themes) || !out.inventory.themes.includes('blauw')) {
     out.inventory.themes = ['blauw', ...(out.inventory.themes || [])];

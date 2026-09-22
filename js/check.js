@@ -17,10 +17,13 @@ export function normalize(s) {
     .trim();
 }
 
+/** Lange antwoorden zijn zinnen: daar scheidt een komma geen synoniemen. */
+export const isSentence = (text) => String(text).trim().split(/\s+/).length >= 4 || String(text).length > 28;
+
 /** Alle geldige schrijfwijzen voor een antwoord. "(de) leraar / docent" → leraar, de leraar, docent. */
 export function variants(answer, { commaSyn = true } = {}) {
   const alts = String(answer)
-    .split(commaSyn ? /\s*[\/;|,]\s*/ : /\s*[\/;|]\s*/)
+    .split(commaSyn && !isSentence(answer) ? /\s*[\/;|,]\s*/ : /\s*[\/;|]\s*/)
     .map((s) => s.trim())
     .filter(Boolean);
   const out = new Set();
@@ -59,6 +62,118 @@ export function displayAnswer(answer) {
   return String(answer).split(/\s*[\/;|]\s*/)[0].replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
 }
 
+// --- Het antwoord terugvinden in een voorbeeldzin ----------------------------
+// In een zin staat een woord vaak verbogen of vervoegd ("buhlen" → "buhlten",
+// "der Antrag" → "Heiratsantrag"). Daarom zoeken we op de stam van het woord.
+
+const ARTICLES = new Set([
+  'der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen', 'einem', 'einer', 'eines',
+  'de', 'het', 'een', 'the', 'a', 'an', 'to', 'le', 'la', 'les', "l'", 'un', 'une', 'des',
+  'el', 'los', 'las', 'il', 'lo', 'gli', 'o', 'os', 'as',
+]);
+const FILLERS = new Set([
+  'sich', 'mich', 'dich', 'uns', 'euch', 'zich', 'se', "s'", 'etwas', 'jemanden', 'jemandem', 'jmdn', 'jmdm', 'etw', 'iets', 'iemand',
+  'um', 'auf', 'an', 'in', 'mit', 'zu', 'von', 'für', 'über', 'aus', 'bei', 'nach', 'vor', 'durch', 'gegen', 'ohne', 'unter',
+  'naar', 'om', 'op', 'met', 'van', 'voor', 'aan', 'bij', 'uit', 'over', 'of', 'for', 'with', 'at', 'on', 'by', 'from', 'up', 'off',
+  'sein', 'haben', 'werden', 'zijn', 'hebben', 'worden', 'be', 'have', 'être', 'avoir',
+]);
+const ENDINGS = ['ungen', 'ieren', 'ern', 'eln', 'en', 'er', 'es', 'em', 'e', 'n', 't', 's'];
+
+// Scheidbare voorvoegsels van Duitse werkwoorden, langste eerst (zurücklegen → zurückgelegt, legte … zurück)
+const SEPARABLE = [
+  'wiederher', 'herunter', 'zusammen', 'zurueck', 'zurück', 'heraus', 'herein', 'hinaus', 'vorweg', 'weiter', 'wieder',
+  'heim', 'inne', 'fest', 'fort', 'nach', 'her', 'hin', 'los', 'mit', 'vor', 'weg', 'auf', 'aus', 'bei', 'ein', 'dar', 'an', 'ab', 'zu',
+].map(fold);
+const INSEPARABLE = ['be', 'ent', 'emp', 'er', 'ge', 'miss', 'ver', 'zer'];
+
+/** Kleine letters en umlauts weg, zodat "Zöpfe" bij "Zopf" en "erlosch" bij "erlöschen" past. */
+function fold(s) {
+  return String(s).toLowerCase().replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss');
+}
+
+function stem(word) {
+  for (const end of ENDINGS) {
+    const min = end === 'en' ? 3 : 4;
+    if (word.endsWith(end) && word.length - end.length >= min) return word.slice(0, -end.length);
+  }
+  return word;
+}
+
+const isVerb = (w) => /(en|eln|ern)$/.test(w) && w.length >= 5;
+
+/**
+ * Patronen om een antwoord in een zin terug te vinden: stammen, voltooide deelwoorden
+ * (ge-), zu-infinitieven en gesplitste werkwoorden ("löste … aus").
+ */
+export function answerPatterns(answer) {
+  const stems = new Set();
+  const splits = [];
+  for (const alt of String(answer).split(/\s*[/;|,]\s*/)) {
+    const words = alt.replace(/[()]/g, ' ').split(/\s+/);
+    for (const raw of words) {
+      const lw = raw.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '').toLowerCase();
+      if (lw.length < 3 || ARTICLES.has(lw) || FILLERS.has(lw)) continue;
+      const w = fold(lw);
+      const s = stem(w);
+      stems.add(s);
+      if (!isVerb(w)) continue;
+      const pre = SEPARABLE.find((p) => w.startsWith(p) && w.length - p.length >= 4);
+      if (pre) {
+        const base = stem(w.slice(pre.length));
+        stems.add(pre + 'ge' + base);
+        stems.add(pre + 'zu' + base);
+        splits.push({ particle: pre, base });
+      } else if (!INSEPARABLE.some((p) => w.startsWith(p))) {
+        stems.add('ge' + s);
+      }
+    }
+  }
+  return { stems: [...stems], splits };
+}
+
+export const answerStems = (answer) => answerPatterns(answer).stems;
+
+/**
+ * Waar staat het antwoord in de zin? Geeft hele woorden terug, zodat een gat
+ * nooit een half woord laat zien.
+ * @returns {{start: number, end: number, text: string}[]}
+ */
+export function sentenceSpans(sentence, answer) {
+  const { stems, splits } = answerPatterns(answer);
+  if (!stems.length) return [];
+  const words = [...String(sentence).matchAll(/\p{L}[\p{L}'’-]*/gu)].map((m) => ({
+    start: m.index,
+    end: m.index + m[0].length,
+    text: m[0],
+    f: fold(m[0]),
+  }));
+  const picked = new Set();
+  words.forEach((w, i) => {
+    const hit = stems.some((s) => w.f.startsWith(s) || (s.length >= 4 && w.f.length >= s.length + 4 && w.f.includes(s)) || (s.length >= 5 && w.f.includes(s)));
+    if (hit) picked.add(i);
+  });
+  // Gesplitst werkwoord: de stam ergens in de zin en het voorvoegsel als laatste woord
+  const last = words.length - 1;
+  for (const { particle, base } of splits) {
+    if (last < 1 || words[last].f !== particle) continue;
+    const i = words.findIndex((w, j) => j < last && w.f.startsWith(base));
+    if (i >= 0) {
+      picked.add(i);
+      picked.add(last);
+    }
+  }
+  return [...picked].sort((a, b) => a - b).map((i) => ({ start: words[i].start, end: words[i].end, text: words[i].text }));
+}
+
+/** Komt het antwoord (in een of andere vorm) in de zin voor? Zo niet, dan kan er geen gat in. */
+export const sentenceHasAnswer = (ex, answer) => sentenceSpans(ex, answer).length > 0;
+
+/** Het antwoord zonder lidwoord ervoor: "die Beziehung" → "Beziehung". */
+export function withoutArticle(answer) {
+  const words = displayAnswer(answer).split(' ');
+  return words.length > 1 && ARTICLES.has(words[0].toLowerCase()) ? words.slice(1).join(' ') : displayAnswer(answer);
+}
+
 export function levenshtein(a, b) {
   if (a === b) return 0;
   if (!a.length) return b.length;
@@ -80,12 +195,13 @@ export function levenshtein(a, b) {
 }
 
 function allowedTypos(len, tolerance) {
-  if (tolerance === 'streng') return 0;
+  if (tolerance === 'streng') return len > 24 ? 1 : 0;
   const extra = tolerance === 'soepel' ? 1 : 0;
   if (len <= 3) return 0;
-  if (len <= 6) return 1 + extra;
   if (len <= 12) return 1 + extra;
-  return 2 + extra;
+  if (len <= 24) return 2 + extra;
+  // Zinnen: ongeveer één tikfout per tien tekens
+  return Math.round(len / 10) + extra;
 }
 
 /**

@@ -406,3 +406,15 @@
   .medals { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .themes { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
+
+/* Voorbeeldzin in een woordrij en in de importvoorbeeldregels */
+.row-ex {
+  grid-column: 1 / -1;
+  font-size: 13.5px;
+  font-style: italic;
+  color: var(--label3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview-row .ex { grid-column: 1 / -1; font-size: 13px; font-style: italic; color: var(--label3); }

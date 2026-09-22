@@ -5,7 +5,7 @@
 // Daarna komt het terug na 1, 3, 8, 21… dagen. Pas als je het op die momenten nog weet, stijgt het.
 
 import { DAY, shuffle } from './util.js';
-import { coreAnswer, normalize } from './check.js';
+import { coreAnswer, normalize, sentenceHasAnswer } from './check.js';
 
 export const LEVELS = ['Nieuw', 'Gezien', 'Herkend', 'Gekend', 'Vast', 'Beheerst'];
 export const MAX_LVL = 5;
@@ -35,12 +35,28 @@ export function canTiles(answer) {
   return letters.length >= 2 && letters.length <= 14 && core.split(' ').length <= 3;
 }
 
+/** Stappen waarbij je het antwoord zelf moet produceren. */
+export const isRecall = (step) => step === 'type' || step === 'sentence' || step === 'cloze';
+
+export const hasSentencePair = (w) => !!(w.ex && w.exb);
+export const canCloze = (w) => !!w.ex && (sentenceHasAnswer(w.ex, w.a) || sentenceHasAnswer(w.ex, w.b));
+
+/** Welke zinsoefening past bij dit woord? 'sentence' = zin vertalen, 'cloze' = invulzin. */
+export function sentenceStep(w, list) {
+  if (!list.useSentences || list.kind === 'sentences') return null;
+  if (hasSentencePair(w)) return 'sentence';
+  return canCloze(w) ? 'cloze' : null;
+}
+
 /** De oefenstappen die een woord in deze sessie nog moet halen. */
-export function stepsFor(w, answerForTiles) {
+export function stepsFor(w, answerForTiles, { extra = null } = {}) {
   const tiles = canTiles(answerForTiles) ? ['tiles'] : [];
-  if (w.lvl <= 0) return ['intro', 'mc', ...tiles, 'type'];
-  if (w.lvl === 1) return ['mc', ...tiles, 'type'];
-  if (w.lvl === 2) return [...tiles, 'type'];
+  const zin = extra ? [extra] : [];
+  if (w.lvl <= 0) return ['intro', 'mc', ...tiles, 'type', ...zin];
+  if (w.lvl === 1) return ['mc', ...tiles, 'type', ...zin];
+  if (w.lvl === 2) return [...tiles, 'type', ...zin];
+  // Herhaling: afwisselend het woord of de zin
+  if (extra && Math.random() < 0.45) return [extra];
   return ['type'];
 }
 
@@ -100,7 +116,7 @@ export function failStep(w, step, { now = Date.now() } = {}) {
   w.last = now;
   if (step === 'intro') return 'miss';
   w.wrong++;
-  if (step === 'type' && w.lvl >= 3) {
+  if (isRecall(step) && w.lvl >= 3) {
     w.lapses++;
     w.lvl = Math.max(1, w.lvl - 2);
     w.ivl = 1;
@@ -157,7 +173,7 @@ export function buildQueue(lists, { maxNew = 5, now = Date.now(), onlyIds = null
       wordId: w.id,
       listId: list.id,
       dir,
-      steps: stepsFor(w, answerOf(w, dir)),
+      steps: stepsFor(w, answerOf(w, dir), { extra: sentenceStep(w, list) }),
       stepIdx: 0,
       misses: 0,
       relearn: false,

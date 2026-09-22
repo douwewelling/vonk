@@ -4,10 +4,10 @@
 import { state, save } from '../store.js';
 import { esc, shuffle, sleep, pick, hashStr, nl, centerOf, randomInt } from '../util.js';
 import { icon, floatText, toast, segmented } from '../ui.js';
-import { passStep, failStep, pickDirection, weightedPick } from '../srs.js';
+import { passStep, failStep, pickDirection, weightedPick, hasSentencePair, canCloze } from '../srs.js';
 import { openStage, countdown, shout, GRADS } from './stage.js';
 import { Scorer } from './scoring.js';
-import { exType, showFeedback } from './exercises.js';
+import { exType, exSentence, exCloze, showFeedback } from './exercises.js';
 import { showResults } from './results.js';
 import { startLearn } from './learn.js';
 import { sfx } from '../fx/sound.js';
@@ -61,8 +61,32 @@ function chooseWords(list, count) {
   return shuffle(out);
 }
 
+/** Welke zinsvraag kan er bij dit woord? */
+const sentenceKind = (w) => (hasSentencePair(w) ? 'sentence' : canCloze(w) ? 'cloze' : null);
+
+/** Zet gekozen woorden om in toetsvragen. */
+function buildQuestions(words, mode) {
+  const qs = [];
+  for (const w of words) {
+    const sk = sentenceKind(w);
+    if (mode !== 'sentences' || !sk) qs.push({ w, kind: 'type' });
+    if (mode !== 'words' && sk) qs.push({ w, kind: sk });
+  }
+  // Woord- en zinsvraag van hetzelfde woord niet direct na elkaar
+  const shuffled = shuffle(qs);
+  for (let i = 1; i < shuffled.length; i++) {
+    if (shuffled[i].w === shuffled[i - 1].w) {
+      const j = shuffled.findIndex((q, k) => k > i + 1 && q.w !== shuffled[i].w);
+      if (j > 0) [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+  }
+  return shuffled;
+}
+
 function startCard(stage, list, hue, name) {
   const n = list.words.length;
+  const withSentence = list.words.filter((w) => sentenceKind(w)).length;
+  let mode = withSentence ? (list.useSentences ? 'mix' : 'words') : 'words';
   const counts = [
     [10, '10'],
     [20, '20'],
@@ -80,19 +104,23 @@ function startCard(stage, list, hue, name) {
       <div class="rule" style="--c:var(--accent)">${icon('target')} <span>Aan het eind krijg je een geschat cijfer</span></div>
     </div>
     ${counts.length > 1 ? `<div style="width:100%"><span class="label" style="text-align:left">Aantal woorden</span>${segmented('count', counts, count)}</div>` : ''}
+    ${withSentence ? `<div style="width:100%"><span class="label" style="text-align:left">Vragen</span>${segmented('mode', [['words', 'Woorden'], ['mix', 'Woorden + zinnen'], ['sentences', 'Alleen zinnen']], mode)}<p class="footnote" style="text-align:left;padding:8px 4px 0">Zinnen zijn invulzinnen: typ het woord dat op de streepjes hoort.</p></div>` : ''}
     <button class="btn btn-primary btn-block" data-start>${icon('bolt')} Vecht!</button>
   </div>`;
-  stage.body.querySelector('[data-seg]')?.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-value]');
-    if (!b) return;
-    count = b.dataset.value === 'all' ? 'all' : +b.dataset.value;
-    stage.body.querySelectorAll('[data-seg] button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-    sfx.tap();
-  });
+  stage.body.querySelectorAll('[data-seg]').forEach((seg) =>
+    seg.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-value]');
+      if (!b) return;
+      if (seg.dataset.seg === 'count') count = b.dataset.value === 'all' ? 'all' : +b.dataset.value;
+      else mode = b.dataset.value;
+      seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      sfx.tap();
+    })
+  );
   return stage.race(
     new Promise((resolve) => {
       const btn = stage.body.querySelector('[data-start]');
-      btn.addEventListener('click', () => resolve({ count }), { once: true });
+      btn.addEventListener('click', () => resolve({ count, mode }), { once: true });
       setTimeout(() => btn.focus({ preventScroll: true }), 100);
     })
   );
@@ -112,7 +140,8 @@ export async function startBoss(list) {
   state.currentListId = list.id;
 
   const words = chooseWords(list, choice.count);
-  const maxHp = words.length;
+  const queue = buildQuestions(words, choice.mode);
+  const maxHp = queue.length;
   let hp = maxHp;
   const maxHearts = Math.min(5, 3 + Math.floor(maxHp / 15));
   let hearts = maxHearts;
@@ -120,7 +149,7 @@ export async function startBoss(list) {
   let streak = 0;
   const firstTry = new Set();
   const failed = new Set();
-  const queue = [...words];
+  const failedWords = new Set();
   const scorer = new Scorer(stage);
 
   await countdown(stage);
@@ -173,9 +202,16 @@ export async function startBoss(list) {
   say(pick(TAUNT_START));
 
   while (queue.length && hearts > 0 && !stage.aborted) {
-    const w = queue.shift();
+    const q = queue.shift();
+    const w = q.w;
+    const qid = `${w.id}:${q.kind}`;
     const dir = pickDirection(list);
-    const r = await exType(stage, exHost, { word: w, list, dir, compact: true, label: `Nog ${hp} te gaan` });
+    const r =
+      q.kind === 'cloze'
+        ? await exCloze(stage, exHost, { word: w, list })
+        : q.kind === 'sentence'
+          ? await exSentence(stage, exHost, { word: w, list, dir })
+          : await exType(stage, exHost, { word: w, list, dir, compact: true, label: `Nog ${hp} te gaan` });
     if (!r || r.aborted || stage.aborted) break;
 
     let ok = r.correct;
@@ -189,8 +225,9 @@ export async function startBoss(list) {
       stage.hurt();
       scorer.miss();
       say(pick(TAUNT_HIT));
-      if (!failed.has(w.id)) failStep(w, 'type');
-      failed.add(w.id);
+      if (!failedWords.has(w.id)) failStep(w, 'type');
+      failed.add(qid);
+      failedWords.add(w.id);
       const fb = await showFeedback(stage, { kind: 'bad', word: w, list, dir, result: r, allowOverride: true });
       if (stage.aborted) break;
       if (fb.override) {
@@ -199,19 +236,20 @@ export async function startBoss(list) {
         heartsLost--;
         renderHearts();
         scorer.undoMiss();
-        failed.delete(w.id);
+        failed.delete(qid);
+        if (![...failed].some((id) => id.startsWith(`${w.id}:`))) failedWords.delete(w.id);
         r.close = false;
       } else if (hearts > 0) {
-        queue.splice(Math.min(queue.length, randomInt(2, 5)), 0, w);
+        queue.splice(Math.min(queue.length, randomInt(2, 5)), 0, q);
       }
     }
 
     if (ok) {
       hp--;
       streak++;
-      if (!failed.has(w.id)) {
-        firstTry.add(w.id);
-        passStep(w, 'type');
+      if (!failed.has(qid)) {
+        firstTry.add(qid);
+        if (!failedWords.has(w.id)) passStep(w, 'type');
       }
       const fast = r.ms < 4000 + String(r.expected || '').length * 200;
       const { crit } = scorer.hit({ base: 8, fast, at: bossEl, critChance: 0.12 });
@@ -264,10 +302,10 @@ export async function startBoss(list) {
   save();
   await sleep(1300);
 
-  const failedIds = [...failed];
+  const failedIds = [...failedWords];
   await showResults(stage, {
     title: victory ? (heartsLost === 0 ? 'Ongeschonden gewonnen!' : 'Eindbaas verslagen!') : 'De baas won deze ronde',
-    subtitle: victory ? `${firstTry.size} van de ${maxHp} woorden in één keer goed.` : 'Oefen de woorden die misgingen en daag hem daarna opnieuw uit.',
+    subtitle: victory ? `${firstTry.size} van de ${maxHp} vragen in één keer goed.` : 'Oefen de woorden die misgingen en daag hem daarna opnieuw uit.',
     badge: { text: nl(grade, 1), grad: grade >= 5.5 ? 'linear-gradient(150deg,#34E08A,#16A34A)' : 'linear-gradient(150deg,#FF8A65,#E5484D)' },
     stats: [
       { k: 'Geschat cijfer', v: Math.round(grade * 10), icon: 'target', c: grade >= 5.5 ? 'var(--green)' : 'var(--red)', fmt: 'grade' },
@@ -281,7 +319,7 @@ export async function startBoss(list) {
     countSession: true,
     chest: victory ? 1 : null,
     celebrate: victory,
-    note: 'Het cijfer is een schatting: het deel van de woorden dat je in één keer goed had, omgerekend naar 1 tot 10.',
+    note: 'Het cijfer is een schatting: het deel van de vragen dat je in één keer goed had, omgerekend naar 1 tot 10.',
     actions: [
       ...(failedIds.length ? [{ text: failedIds.length === 1 ? 'Oefen het lastige woord' : `Oefen de ${failedIds.length} lastige woorden`, icon: 'cards', style: 'btn-tinted', onClick: () => startLearn({ lists: [list], onlyIds: failedIds }) }] : []),
       { text: victory ? 'Nog een gevecht' : 'Opnieuw proberen', icon: 'repeat', style: 'btn-gray', onClick: () => startBoss(list) },

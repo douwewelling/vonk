@@ -41,7 +41,7 @@ Vonk is een webapp in Apple-stijl om woordjes te leren voor Engels, Frans, Duits
 | **Leren** | De hoofdmodus: slimme herhaling met oplopende moeilijkheid. Hier gaan woorden echt een niveau omhoog. |
 | **Blitz** | Zoveel mogelijk goed in 60 seconden. Een fout kost 2 seconden. |
 | **Koppel** | Tik woord en vertaling bij elkaar, zo snel als je kunt. |
-| **Eindbaas** | Toets-simulatie tegen een monster. Elke fout kost een hart, 5 goed op rij geeft er één terug. Je krijgt een geschat cijfer. |
+| **Eindbaas** | Toets-simulatie tegen een monster, met woorden, invulzinnen of allebei. Elke fout kost een hart, 5 goed op rij geeft er één terug. Je krijgt een geschat cijfer. |
 
 ## Je eigen woordjes toevoegen
 
@@ -59,6 +59,25 @@ aujourd'hui = vandaag
 - Een **komma** telt standaard ook als synoniem. Zet dat per lijst uit voor rijtjes als `go, went, gone`.
 - Staat de vertaling links? Zet dan **Kolommen omdraaien** aan.
 - Kleine tikfouten en vergeten accenten worden goed gerekend, maar je ziet wel de juiste spelling. Hoe streng dat is, stel je in bij **Profiel**.
+- Staan er kopjes in je lijst, zoals `Hoofdstuk 1 - Menschliche Beziehungen`? Dan maakt Vonk op verzoek **één lijst per hoofdstuk**.
+
+### Voorbeeldzinnen
+
+Op toetsen komen vaak zinnen voor. Vonk kan daarom per woord een voorbeeldzin bewaren. Die zet je er op een van deze manieren bij:
+
+```text
+die Beziehung: Die beiden Familien haben gute Beziehungen.<TAB>de relatie
+house = huis = I live in a big house. = Ik woon in een groot huis.
+to run = rennen
+> He runs every morning.
+```
+
+De eerste vorm (`woord: zin`, dan een tab, dan de vertaling) is hoe veel Word-woordenlijsten eruitzien. Die kun je dus direct kopiëren en plakken. Per lijst stel je in:
+
+- **Zin altijd onder het woord.** Bij elke vraag staat de zin eronder, ook bij gewone woordvragen. Staat het antwoord in de zin, dan wordt dat een gat, zodat de zin helpt zonder het antwoord te verklappen. Vonk vindt het woord ook terug als het verbogen of vervoegd is (*buhlen* → *buhlten*, *Antrag* → *Heiratsantrag*, *zurücklegen* → *zurückgelegt*, *auslösen* → *löste … aus*).
+- **Zinnen overhoren.** Je krijgt **invulzinnen** in Leren. Heeft een zin ook een vertaling, dan oefen je ook **de hele zin vertalen**. In de **Eindbaas** kies je voor woorden, woorden + zinnen of alleen zinnen.
+
+Bij een invulzin is zowel de vorm uit de zin goed (*Beziehungen*) als het woord uit de lijst (*die Beziehung* of *Beziehung*).
 
 ## Op je telefoon spelen
 

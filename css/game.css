@@ -562,3 +562,69 @@
 .rules { display: grid; gap: 10px; width: 100%; text-align: left; }
 .rule { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--bg-elev); font-size: 15px; }
 .rule svg { width: 22px; height: 22px; color: var(--c, var(--accent)); flex: none; }
+
+/* Voorbeeldzinnen ------------------------------------------------------------------- */
+.q-ex {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.45;
+  color: var(--label2);
+  text-align: center;
+  text-wrap: pretty;
+  animation: pop 0.3s var(--bounce);
+}
+.q-ex.in-card { padding: 0 6px; }
+.q-ex b { color: var(--label); font-weight: 700; }
+.q-ex .blank {
+  display: inline-block;
+  color: transparent;
+  border-bottom: 2.5px solid var(--accent);
+  margin-bottom: -2px;
+  letter-spacing: 0.02em;
+}
+.fb-answer .q-ex { text-align: left; margin-top: 4px; }
+.ex-toggle {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--label2);
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 0.2s var(--bounce), color 0.2s, background-color 0.2s;
+}
+.ex-toggle svg { width: 15px; height: 15px; }
+.ex-toggle:active { transform: scale(0.94); }
+.ex-toggle.open { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+
+/* Zinkaarten (invulzin, zin vertalen) */
+.q-card.sentence { min-height: 140px; padding: 26px 22px; }
+.q-word.sentence {
+  font-size: clamp(19px, 5.2vw, 25px);
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: -0.012em;
+  text-wrap: pretty;
+}
+.q-word.sentence .blank { border-bottom-width: 3px; }
+textarea.answer-input.long {
+  min-height: 96px;
+  resize: none;
+  text-align: left;
+  font-size: 19px;
+  line-height: 1.4;
+  font-family: inherit;
+}
+.q-ex.shown {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--fill);
+  font-style: normal;
+}
+.q-ex.shown b { color: var(--accent); }
+.fb-answer .lbl.plain { text-transform: none; letter-spacing: 0; font-size: 14.5px; font-weight: 600; line-height: 1.4; }
+.game-actions .btn { white-space: nowrap; padding: 0 16px; }

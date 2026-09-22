@@ -7,11 +7,11 @@ import { buildQueue, remainingSteps, passStep, failStep, stepsFor, answerOf } fr
 import { checkAchievements } from '../rewards.js';
 import { openStage } from './stage.js';
 import { Scorer } from './scoring.js';
-import { exIntro, exMC, exTiles, exType, showFeedback } from './exercises.js';
+import { exIntro, exMC, exTiles, exType, exSentence, exCloze, showFeedback } from './exercises.js';
 import { showResults, commitRun } from './results.js';
 import { speak, canSpeak } from '../fx/speech.js';
 
-const BASE_XP = { mc: 5, tiles: 6, type: 8 };
+const BASE_XP = { mc: 5, tiles: 6, type: 8, cloze: 9, sentence: 12 };
 
 /** Andere antwoorden van dezelfde kant, als foute opties voor meerkeuze. */
 function poolFor(list, dir, word) {
@@ -97,6 +97,8 @@ export async function startLearn({ lists, onlyIds = null }) {
     if (step === 'intro') r = await exIntro(stage, host, { word, list });
     else if (step === 'mc') r = await exMC(stage, host, { word, list, dir: item.dir, pool: poolFor(list, item.dir, word), golden });
     else if (step === 'tiles') r = await exTiles(stage, host, { word, list, dir: item.dir, golden });
+    else if (step === 'sentence') r = await exSentence(stage, host, { word, list, dir: item.dir, golden });
+    else if (step === 'cloze') r = await exCloze(stage, host, { word, list, golden });
     else r = await exType(stage, host, { word, list, dir: item.dir, golden });
     if (stage.aborted || !r || r.aborted) break;
 
@@ -119,7 +121,7 @@ export async function startLearn({ lists, onlyIds = null }) {
     let ok = r.correct;
     if (!ok) {
       scorer.miss();
-      const fb = await showFeedback(stage, { kind: 'bad', word, list, dir: item.dir, result: r, allowOverride: step === 'type' });
+      const fb = await showFeedback(stage, { kind: 'bad', word, list, dir: item.dir, result: r, allowOverride: step !== 'mc' && step !== 'tiles' });
       if (stage.aborted) break;
       if (fb.override) {
         ok = true;
@@ -131,13 +133,15 @@ export async function startLearn({ lists, onlyIds = null }) {
     if (ok) {
       if (item.golden) item.golden = false;
       const ansLang = item.dir === 'ab' ? list.langB : list.langA;
-      const limit = step === 'type' ? 4000 + answerOf(word, item.dir).length * 220 : 2600;
+      const limit = step === 'mc' || step === 'tiles' ? 2600 : 4000 + String(r.answer || answerOf(word, item.dir)).length * 220;
       scorer.hit({ base: BASE_XP[step] - (r.hints || 0) * 2, fast: r.ms < limit, golden, at: r.el });
       if (r.close) {
         await showFeedback(stage, { kind: 'close', word, list, dir: item.dir, result: r });
         if (stage.aborted) break;
       } else {
-        if (step !== 'mc' && ansLang !== 'nl' && state.settings.autoSpeak && canSpeak(ansLang)) speak(answerOf(word, item.dir), ansLang);
+        if (step === 'type' || step === 'tiles') {
+          if (ansLang !== 'nl' && state.settings.autoSpeak && canSpeak(ansLang)) speak(answerOf(word, item.dir), ansLang);
+        }
         await sleep(step === 'mc' ? 620 : 700);
       }
       passStep(word, step, { relearn: item.relearn });

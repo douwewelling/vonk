@@ -51,7 +51,7 @@ export function render(root) {
               return `<a class="row list-row" href="#/lijst/${encodeURIComponent(l.id)}">
                 <div class="row-main">
                   <div class="row-title">${esc(l.title)}${l.sample ? ' <span class="tag">Voorbeeld</span>' : ''}</div>
-                  <div class="row-sub">${langPair(l)} · ${plural(s.total, 'woord', 'woorden')}${s.due ? ` · <span class="due-dot">${s.due} herhalen</span>` : ''}</div>
+                  <div class="row-sub">${langPair(l)} · ${plural(s.total, 'woord', 'woorden')}${l.words.some((w) => w.ex) ? ' · met zinnen' : ''}${s.due ? ` · <span class="due-dot">${s.due} herhalen</span>` : ''}</div>
                 </div>
                 ${miniRing(s.progress, { size: 38, stroke: 4.5, label: `${Math.round(s.progress * 100)}` })}
                 <span class="chev">${icon('chevron')}</span>
@@ -90,6 +90,7 @@ export function renderDetail(root, id) {
   }
   const s = listStats(l);
   const pct = Math.round(s.progress * 100);
+  const withEx = l.words.filter((w) => w.ex).length;
   root.innerHTML = `
     <nav class="navbar">
       <a class="back" href="#/lijsten">${icon('back')}Lijsten</a>
@@ -135,6 +136,19 @@ export function renderDetail(root, id) {
       <button class="row" data-delete><div class="row-main"><div class="row-title" style="color:var(--red)">Lijst verwijderen</div></div></button>
     </div>
 
+    <div class="section"><h2>Voorbeeldzinnen</h2><span class="muted small">${withEx} van ${l.words.length}</span></div>
+    <div class="group">
+      <label class="row">
+        <div class="row-main"><div class="row-title">Zin altijd onder het woord</div><div class="row-sub">Ook bij gewone woordvragen. Staat het antwoord in de zin, dan wordt dat een gat. Uit: de zin zit achter een knopje.</div></div>
+        <input type="checkbox" class="switch" data-opt="showSentences" ${l.showSentences ? 'checked' : ''} aria-label="Zin altijd onder het woord">
+      </label>
+      <label class="row">
+        <div class="row-main"><div class="row-title">Zinnen overhoren</div><div class="row-sub">Invulzinnen (en zinnen vertalen als er een vertaling bij staat) in Leren en in de Eindbaas-toets.</div></div>
+        <input type="checkbox" class="switch" data-opt="useSentences" ${l.useSentences ? 'checked' : ''} aria-label="Zinnen overhoren">
+      </label>
+    </div>
+    ${withEx ? '' : '<p class="footnote">Deze lijst heeft nog geen zinnen. Tik op een woord om er een toe te voegen, of plak ze mee via Woorden toevoegen.</p>'}
+
     <div class="section"><h2>Woorden</h2><span class="muted small">${plural(l.words.length, 'woord', 'woorden')}</span></div>
     <div class="group">
       ${l.words
@@ -143,6 +157,7 @@ export function renderDetail(root, id) {
             <span class="wa">${esc(w.a)}</span>
             <span class="wb">${esc(w.b)}</span>
             <span class="lvl-dots${w.lvl >= 5 ? ' max' : ''}" title="${LEVELS[w.lvl]}">${[1, 2, 3, 4, 5].map((i) => `<i class="${w.lvl >= i ? 'on' : ''}"></i>`).join('')}</span>
+            ${w.ex ? `<span class="row-ex">${esc(w.ex)}</span>` : ''}
           </button>`
         )
         .join('')}
@@ -163,6 +178,12 @@ export function renderDetail(root, id) {
     l.commaSyn = e.target.checked;
     commit();
   });
+  root.querySelectorAll('[data-opt]').forEach((sw) =>
+    sw.addEventListener('change', () => {
+      l[sw.dataset.opt] = sw.checked;
+      commit();
+    })
+  );
   root.querySelector('[data-rename]').addEventListener('click', () => openRename(l));
   root.querySelector('[data-reset]').addEventListener('click', async () => {
     const ok = await alertDialog({
@@ -207,7 +228,7 @@ function importFields(prefix, { withMeta = true, langA = 'en', langB = 'nl', tit
   return `<div class="form-grid">
     ${
       withMeta
-        ? `<div><label class="label" for="${prefix}-title">Titel</label><input class="field" id="${prefix}-title" value="${esc(title)}" placeholder="Bijv. Engels, unit 4" maxlength="60" autocomplete="off"></div>
+        ? `<div><label class="label" for="${prefix}-title">Titel</label><input class="field" id="${prefix}-title" value="${esc(title)}" placeholder="Bijv. Duits, hoofdstuk 3" maxlength="60" autocomplete="off"></div>
     <div><span class="label">Talen (links → rechts)</span>
       <div class="lang-select">
         <select class="field" id="${prefix}-la" aria-label="Taal links">${langOptions(langA)}</select>
@@ -219,18 +240,61 @@ function importFields(prefix, { withMeta = true, langA = 'en', langB = 'nl', tit
     }
     <div>
       <label class="label" for="${prefix}-text">Woorden</label>
-      <textarea class="field" id="${prefix}-text" spellcheck="false" placeholder="house = huis&#10;to run = rennen&#10;(the) teacher = (de) leraar / docent"></textarea>
+      <textarea class="field" id="${prefix}-text" spellcheck="false" placeholder="house = huis&#10;to run = rennen&#10;die Beziehung: Die Familien haben gute Beziehungen.&#9;de relatie"></textarea>
       <div data-preview></div>
       <p class="footnote">Eén woordpaar per regel, gescheiden door =, een tab, ; of een streepje. Tussen haakjes = mag weggelaten worden. Met / geef je meerdere goede antwoorden.</p>
+      <p class="footnote"><b>Voorbeeldzinnen</b> mogen op drie manieren:<br>
+        <code>woord: voorbeeldzin</code> + tab + <code>vertaling</code> (zoals in veel Word-lijsten)<br>
+        een derde kolom: <code>house = huis = I live in a big house.</code><br>
+        of een eigen regel onder het woord die met <code>&gt;</code> begint.</p>
     </div>
     <label class="switch-row"><span>Kolommen omdraaien<small>Gebruik dit als de vertaling links staat</small></span><input type="checkbox" class="switch" id="${prefix}-swap"></label>
   </div>`;
+}
+
+/** Instellingen voor voorbeeldzinnen en hoofdstukken, onder het plakveld van een nieuwe lijst. */
+function sentenceFields(prefix) {
+  return `<div class="form-grid" style="margin-top:18px">
+    <div data-chapters hidden>
+      <span class="label">Hoofdstukken</span>
+      <label class="switch-row"><span>Eén lijst per hoofdstuk<small data-chapter-names></small></span><input type="checkbox" class="switch" id="${prefix}-split" checked></label>
+    </div>
+    <div>
+      <span class="label">Voorbeeldzinnen</span>
+      <div class="group">
+        <label class="row"><div class="row-main"><div class="row-title">Zin altijd onder het woord</div><div class="row-sub">Ook bij gewone woordvragen. Staat het antwoord in de zin, dan wordt dat een gat.</div></div><input type="checkbox" class="switch" id="${prefix}-show" checked></label>
+        <label class="row"><div class="row-main"><div class="row-title">Zinnen overhoren</div><div class="row-sub">Invulzinnen en zinnen vertalen in Leren en in de Eindbaas-toets.</div></div><input type="checkbox" class="switch" id="${prefix}-use" checked></label>
+      </div>
+      <p class="footnote" data-sentence-hint></p>
+    </div>
+  </div>`;
+}
+
+/** Raad de taal van een kolom aan de hand van veelvoorkomende woordjes. */
+function guessLang(texts) {
+  const sample = ` ${texts.slice(0, 60).join(' ').toLowerCase()} `;
+  const count = (re) => (sample.match(re) || []).length;
+  const score = {
+    de: count(/ (der|die|das|und|ist|sich|nicht|ein|eine) /g) + count(/[äöüß]/g),
+    fr: count(/ (le|la|les|un|une|des|est|et|je|il) /g) + count(/[éèêàçœ]/g),
+    es: count(/ (el|los|las|una|es|y|que|está) /g) + count(/[ñ¿¡]/g),
+    en: count(/ (the|to|a|an|is|and|of|you) /g),
+    nl: count(/ (de|het|een|en|is|niet|van|ik) /g),
+  };
+  const [best, n] = Object.entries(score).sort((x, y) => y[1] - x[1])[0];
+  return n >= 3 ? best : null;
 }
 
 function wirePreview(root, prefix, onChange) {
   const ta = root.querySelector(`#${prefix}-text`);
   const swap = root.querySelector(`#${prefix}-swap`);
   const prev = root.querySelector('[data-preview]');
+  const selA = root.querySelector(`#${prefix}-la`);
+  const selB = root.querySelector(`#${prefix}-lb`);
+  let touchedLang = false;
+  selA?.addEventListener('change', () => (touchedLang = true));
+  selB?.addEventListener('change', () => (touchedLang = true));
+
   const update = () => {
     const res = parseList(ta.value, { swap: swap.checked });
     if (!ta.value.trim()) {
@@ -238,54 +302,97 @@ function wirePreview(root, prefix, onChange) {
     } else if (!res.pairs.length) {
       prev.innerHTML = `<div class="preview-status warn">${icon('info')} Nog geen woordparen herkend. Zet op elke regel bijvoorbeeld "woord = vertaling".</div>`;
     } else {
-      prev.innerHTML = `<div class="preview-status">${icon('check')} ${plural(res.pairs.length, 'woordpaar', 'woordparen')} herkend${res.sep ? ` (gescheiden door ${esc(res.sep === 'tab' ? 'tabs' : `"${res.sep}"`)})` : ''}${res.skipped ? ` · ${res.skipped} regel${res.skipped === 1 ? '' : 's'} overgeslagen` : ''}</div>
+      const extra = [
+        res.withSentences ? `${res.withSentences} met voorbeeldzin` : '',
+        res.sections.length > 1 ? `${res.sections.length} hoofdstukken` : '',
+        res.skipped ? `${res.skipped} regel${res.skipped === 1 ? '' : 's'} overgeslagen` : '',
+      ].filter(Boolean);
+      prev.innerHTML = `<div class="preview-status">${icon('check')} ${plural(res.pairs.length, 'woordpaar', 'woordparen')} herkend${res.sep ? ` (gescheiden door ${esc(res.sep === 'tab' ? 'tabs' : `"${res.sep}"`)})` : ''}${extra.length ? ` · ${extra.join(' · ')}` : ''}</div>
         <div class="preview-box" style="margin-top:8px">${res.pairs
           .slice(0, 4)
-          .map((p) => `<div class="preview-row"><span>${esc(p.a)}</span><span>${esc(p.b)}</span></div>`)
+          .map((p) => `<div class="preview-row"><span>${esc(p.a)}</span><span>${esc(p.b)}</span>${p.ex ? `<span class="ex">${esc(p.ex)}</span>` : ''}</div>`)
           .join('')}${res.pairs.length > 4 ? `<div class="preview-row"><span class="muted">en nog ${res.pairs.length - 4}…</span><span></span></div>` : ''}</div>`;
+      // Taal automatisch invullen zolang je hem zelf nog niet gekozen hebt
+      if (selA && selB && !touchedLang) {
+        const ga = guessLang(res.pairs.map((p) => `${p.a} ${p.ex || ''}`));
+        const gb = guessLang(res.pairs.map((p) => p.b));
+        if (ga && ga !== gb) selA.value = ga;
+        if (gb && gb !== ga) selB.value = gb;
+      }
     }
     onChange(res);
   };
   ta.addEventListener('input', update);
   swap.addEventListener('change', update);
   root.querySelector('[data-swaplang]')?.addEventListener('click', () => {
-    const a = root.querySelector(`#${prefix}-la`);
-    const b = root.querySelector(`#${prefix}-lb`);
-    [a.value, b.value] = [b.value, a.value];
+    [selA.value, selB.value] = [selB.value, selA.value];
+    touchedLang = true;
     sfx.tap();
   });
   update();
 }
 
 export function openNewList() {
-  let parsed = { pairs: [] };
+  let parsed = { pairs: [], sections: [], withSentences: 0 };
   const sheet = openSheet({
     title: 'Nieuwe lijst',
-    body: importFields('nl'),
+    body: importFields('nl') + sentenceFields('nl'),
     foot: `<button class="btn btn-primary btn-block" data-save disabled>Lijst opslaan</button>`,
   });
   const el = sheet.el;
   const save = el.querySelector('[data-save]');
   const titleIn = el.querySelector('#nl-title');
-  const validate = () => (save.disabled = !(parsed.pairs.length && titleIn.value.trim()));
+  const chapters = el.querySelector('[data-chapters]');
+  const split = el.querySelector('#nl-split');
+  const hint = el.querySelector('[data-sentence-hint]');
+  const perChapter = () => parsed.sections.length > 1 && split.checked;
+
+  const refresh = () => {
+    const n = parsed.sections.length;
+    chapters.hidden = n < 2;
+    if (n > 1) {
+      el.querySelector('[data-chapter-names]').textContent = `${n} lijsten: ${parsed.sections.map((s) => s.title).join(', ')}`;
+    }
+    hint.textContent = !parsed.pairs.length
+      ? ''
+      : parsed.withSentences
+        ? `${parsed.withSentences} van de ${parsed.pairs.length} woorden hebben een voorbeeldzin.`
+        : 'Er zijn nog geen voorbeeldzinnen gevonden. Je kunt ze ook later per woord toevoegen.';
+    save.disabled = !(parsed.pairs.length && (titleIn.value.trim() || perChapter()));
+    save.textContent = perChapter() ? `${n} lijsten opslaan` : 'Lijst opslaan';
+  };
   wirePreview(el, 'nl', (res) => {
     parsed = res;
-    validate();
+    refresh();
   });
-  titleIn.addEventListener('input', validate);
+  titleIn.addEventListener('input', refresh);
+  split.addEventListener('change', refresh);
   setTimeout(() => titleIn.focus(), 380);
+
   save.addEventListener('click', () => {
-    const list = makeList({
-      title: titleIn.value.trim(),
+    const title = titleIn.value.trim();
+    const base = {
       langA: el.querySelector('#nl-la').value,
       langB: el.querySelector('#nl-lb').value,
-      pairs: parsed.pairs,
-    });
-    addList(list);
+      showSentences: el.querySelector('#nl-show').checked,
+      useSentences: el.querySelector('#nl-use').checked,
+    };
+    const groups = perChapter()
+      ? parsed.sections.map((s) => ({ title: title ? `${title} · ${s.title}` : s.title, pairs: s.pairs }))
+      : [{ title, pairs: parsed.pairs }];
+    const made = groups.map((g) => makeList({ ...base, title: g.title, pairs: g.pairs }));
+    // Omgekeerd toevoegen, zodat hoofdstuk 1 bovenaan staat
+    [...made].reverse().forEach((l) => addList(l));
     sheet.close();
     sfx.pop();
-    toast(`${plural(list.words.length, 'woord', 'woorden')} toegevoegd`, { icon: 'check' });
-    location.hash = `#/lijst/${encodeURIComponent(list.id)}`;
+    const words = made.reduce((n, l) => n + l.words.length, 0);
+    if (made.length > 1) {
+      toast(`${made.length} lijsten met ${words} woorden gemaakt`, { icon: 'check' });
+      location.hash = '#/lijsten';
+    } else {
+      toast(`${plural(words, 'woord', 'woorden')} toegevoegd`, { icon: 'check' });
+      location.hash = `#/lijst/${encodeURIComponent(made[0].id)}`;
+    }
   });
 }
 
@@ -304,13 +411,13 @@ export function openAddWords(list) {
   });
   setTimeout(() => el.querySelector('#aw-text').focus(), 380);
   save.addEventListener('click', () => {
-    const have = new Set(list.words.map((w) => `${w.a.toLowerCase()} ${w.b.toLowerCase()}`));
+    const have = new Set(list.words.map((w) => `${w.a.toLowerCase()}||${w.b.toLowerCase()}`));
     let added = 0;
     for (const p of parsed.pairs) {
-      const k = `${p.a.toLowerCase()} ${p.b.toLowerCase()}`;
+      const k = `${p.a.toLowerCase()}||${p.b.toLowerCase()}`;
       if (have.has(k)) continue;
       have.add(k);
-      list.words.push(makeWord(p.a, p.b));
+      list.words.push(makeWord(p.a, p.b, p.ex, p.exb));
       added++;
     }
     commit();
@@ -352,6 +459,9 @@ function openWordEdit(list, w) {
     body: `<div class="form-grid">
       <div><label class="label" for="we-a">${esc(lang(list.langA).name)}</label><input class="field" id="we-a" value="${esc(w.a)}" autocomplete="off" spellcheck="false"></div>
       <div><label class="label" for="we-b">${esc(lang(list.langB).name)}</label><input class="field" id="we-b" value="${esc(w.b)}" autocomplete="off" spellcheck="false"></div>
+      <div><label class="label" for="we-ex">Voorbeeldzin (optioneel)</label><textarea class="field" id="we-ex" rows="2" style="min-height:76px" spellcheck="false" placeholder="Een zin waarin dit woord voorkomt">${esc(w.ex || '')}</textarea></div>
+      <div><label class="label" for="we-exb">Vertaling van de zin (optioneel)</label><textarea class="field" id="we-exb" rows="2" style="min-height:76px" spellcheck="false" placeholder="Met een vertaling kun je ook de hele zin oefenen">${esc(w.exb || '')}</textarea>
+        <p class="footnote">De zin staat onder het woord tijdens het oefenen (met een gat als het antwoord erin staat) en komt terug als invulzin.</p></div>
       <div class="group">
         <div class="row"><div class="row-main"><div class="row-title">Niveau</div></div><span class="row-value">${LEVELS[w.lvl]}</span></div>
         <div class="row"><div class="row-main"><div class="row-title">Goed / fout</div></div><span class="row-value">${nl(w.right)} / ${nl(w.wrong)}</span></div>
@@ -368,6 +478,8 @@ function openWordEdit(list, w) {
     if (a && b) {
       w.a = a;
       w.b = b;
+      w.ex = el.querySelector('#we-ex').value.trim();
+      w.exb = el.querySelector('#we-exb').value.trim();
       commit();
     }
     sheet.close();
