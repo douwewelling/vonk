@@ -60,11 +60,17 @@ aujourd'hui = vandaag
 - Staat de vertaling links? Zet dan **Kolommen omdraaien** aan.
 - Kleine tikfouten en vergeten accenten worden goed gerekend, maar je ziet wel de juiste spelling. Hoe streng dat is, stel je in bij **Profiel**.
 
-## Op je telefoon zetten
+## Op je telefoon spelen
 
-1. Open de speellink in **Safari** (iPhone) of **Chrome** (Android).
-2. iPhone: tik op **Deel** → **Zet op beginscherm**. Android: tik op **⋮** → **App installeren**.
-3. Vonk opent nu als een echte app, ook zonder internet.
+**Thuis via wifi (snelst):** start Vonk op je computer met `npm start`. In het venster verschijnt ook een adres zoals `http://192.168.1.23:5173`. Open dat op je telefoon (die moet op hetzelfde wifi-netwerk zitten). Vraagt Windows om toegang voor Node.js, kies dan *Privénetwerken*.
+
+**Overal en offline:** zet de map online op een gratis statische host met https, bijvoorbeeld GitHub Pages (werkt gratis als de repo publiek is), Netlify of Cloudflare Pages. Open de link daarna op je telefoon:
+
+1. iPhone: open de link in **Safari**, tik op **Deel** → **Zet op beginscherm**.
+2. Android: open de link in **Chrome**, tik op **⋮** → **App installeren**.
+3. Vonk opent nu als een echte app en werkt ook zonder internet.
+
+> Je voortgang wordt per apparaat en per adres bewaard. Wil je verder op een ander apparaat? Gebruik **Profiel → Back-up downloaden** en zet die daar terug.
 
 ## Lokaal draaien
 

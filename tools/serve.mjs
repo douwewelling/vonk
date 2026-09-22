@@ -1,5 +1,6 @@
 // Mini-webserver zonder afhankelijkheden: `npm start` of `node tools/serve.mjs`.
 import http from 'node:http';
+import os from 'node:os';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,4 +37,12 @@ http
       res.end(data);
     });
   })
-  .listen(port, () => console.log(`Vonk draait op http://localhost:${port}`));
+  .listen(port, () => {
+    console.log(`Vonk draait op http://localhost:${port}`);
+    // Adressen om Vonk op je telefoon te openen (zelfde wifi-netwerk)
+    for (const nets of Object.values(os.networkInterfaces())) {
+      for (const n of nets || []) {
+        if (n.family === 'IPv4' && !n.internal) console.log(`Op je telefoon:  http://${n.address}:${port}`);
+      }
+    }
+  });
