@@ -13,19 +13,56 @@ export function normalize(s) {
     .replace(/[“”]/g, '"')
     .replace(PUNCT_EDGE, '')
     .replace(/\s+/g, ' ')
-    .replace(/\s*'\s*/g, "'")
+    .replace(/(\p{L})'\s+/gu, "$1'") // "l' école" → "l'école", maar "zowel 's morgens" blijft los
     .trim();
 }
 
-/** Lange antwoorden zijn zinnen: daar scheidt een komma geen synoniemen. */
+/** Lange antwoorden zijn zinnen (voor de opmaak: groot tekstvak, geen hoofdletterlabel). */
 export const isSentence = (text) => String(text).trim().split(/\s+/).length >= 4 || String(text).length > 28;
+
+/** Splitst op scheidingstekens, maar niet binnen haakjes: "schenken (met name, vooral)". */
+function splitOutsideParens(text, seps) {
+  const out = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of String(text)) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth = Math.max(0, depth - 1);
+    if (depth === 0 && seps.includes(ch)) {
+      out.push(cur);
+      cur = '';
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Is de komma hier een scheiding tussen synoniemen ("de relatie, het contact")
+ * of hoort hij bij een zin ("Aujourd'hui, il fait beau.")?
+ * Synoniemen: geen zinseinde-teken en elk deel hooguit zes woorden.
+ */
+export function commaIsSynonym(answer) {
+  const t = String(answer).replace(/\([^()]*\)/g, '').trim();
+  if (!t.includes(',') || /[.!?]$/.test(t) || /^[¿¡]/.test(t)) return false;
+  return t.split(',').every((p) => {
+    const n = p.trim().split(/\s+/).filter(Boolean).length;
+    return n >= 1 && n <= 6;
+  });
+}
+
+/**
+ * De losse goede antwoorden. Scheidingstekens: / ; | en (bij synoniemen) de komma.
+ * "billijk, wat gevraagd kan worden" → ["billijk", "wat gevraagd kan worden"]
+ */
+export function alternatives(answer, { commaSyn = true } = {}) {
+  const seps = commaSyn && commaIsSynonym(answer) ? '/;|,' : '/;|';
+  return splitOutsideParens(answer, seps);
+}
 
 /** Alle geldige schrijfwijzen voor een antwoord. "(de) leraar / docent" → leraar, de leraar, docent. */
 export function variants(answer, { commaSyn = true } = {}) {
-  const alts = String(answer)
-    .split(commaSyn && !isSentence(answer) ? /\s*[\/;|,]\s*/ : /\s*[\/;|]\s*/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const alts = alternatives(answer, { commaSyn });
   const out = new Set();
   for (const alt of alts) {
     for (const v of expandOptional(alt)) {
@@ -51,9 +88,9 @@ function expandOptional(s) {
   return [...withPart, ...without];
 }
 
-/** Eerste alternatief zonder optionele delen, bijv. voor letterblokjes. */
-export function coreAnswer(answer) {
-  const first = String(answer).split(/\s*[\/;|]\s*/)[0] || String(answer);
+/** Eerste alternatief zonder optionele delen, bijv. voor letterblokjes en hints. */
+export function coreAnswer(answer, { commaSyn = true } = {}) {
+  const first = alternatives(answer, { commaSyn })[0] || String(answer);
   return first.replace(/\([^()]*\)/g, '').replace(/\s+/g, ' ').trim();
 }
 
@@ -223,11 +260,20 @@ export function checkAnswer(input, answer, { tolerance = 'normaal', accents = 's
     }
   }
 
-  // Kleine tikfout?
+  // Kleine tikfout? Alleen binnen een antwoord met evenveel woorden: een heel woord
+  // weglaten of toevoegen ("wat gevraagd" voor "wat gevraagd kan worden") is geen tikfout.
+  const words = (s) => s.split(' ').filter(Boolean).length;
   let best = null;
   let bestD = Infinity;
+  let near = null;
+  let nearD = Infinity;
   for (const v of vars) {
     const d = levenshtein(givenPlain, stripAccents(v));
+    if (d < nearD) {
+      nearD = d;
+      near = v;
+    }
+    if (words(v) !== words(givenPlain)) continue;
     if (d < bestD) {
       bestD = d;
       best = v;
@@ -236,7 +282,7 @@ export function checkAnswer(input, answer, { tolerance = 'normaal', accents = 's
   if (best && bestD <= allowedTypos(best.length, tolerance)) {
     return { ok: true, exact: false, note: 'typo', expected: best };
   }
-  return { ok: false, exact: false, note: null, expected: best && bestD <= best.length / 2 ? best : shown };
+  return { ok: false, exact: false, note: null, expected: near && nearD <= near.length / 2 ? near : shown };
 }
 
 /**

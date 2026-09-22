@@ -56,7 +56,8 @@ aujourd'hui = vandaag
 
 - Tekst **tussen haakjes** mag je weglaten: `(de) leraar` rekent ook `leraar` goed.
 - Met **/** geef je meerdere goede antwoorden: `leraar / docent`.
-- Een **komma** telt standaard ook als synoniem. Zet dat per lijst uit voor rijtjes als `go, went, gone`.
+- Een **komma** betekent synoniemen: bij `billijk, wat gevraagd kan worden` is `billijk` goed en `wat gevraagd kan worden` ook. Een synoniem van meerdere woorden moet wel compleet zijn: `wat gevraagd` is fout. Zet de komma-regel per lijst uit voor rijtjes als `go, went, gone`. In echte zinnen (met een punt aan het eind) is een komma nooit een scheiding.
+- Een tikfout mag, maar een heel woord vergeten of toevoegen telt altijd als fout.
 - Staat de vertaling links? Zet dan **Kolommen omdraaien** aan.
 - Kleine tikfouten en vergeten accenten worden goed gerekend, maar je ziet wel de juiste spelling. Hoe streng dat is, stel je in bij **Profiel**.
 - Staan er kopjes in je lijst, zoals `Hoofdstuk 1 - Menschliche Beziehungen`? Dan maakt Vonk op verzoek **één lijst per hoofdstuk**.

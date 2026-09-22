@@ -29,8 +29,8 @@ export function listStats(list, now = Date.now()) {
 }
 
 /** Past het antwoord in letterblokjes? */
-export function canTiles(answer) {
-  const core = coreAnswer(answer);
+export function canTiles(answer, commaSyn = true) {
+  const core = coreAnswer(answer, { commaSyn });
   const letters = core.replace(/\s/g, '');
   return letters.length >= 2 && letters.length <= 14 && core.split(' ').length <= 3;
 }
@@ -49,8 +49,8 @@ export function sentenceStep(w, list) {
 }
 
 /** De oefenstappen die een woord in deze sessie nog moet halen. */
-export function stepsFor(w, answerForTiles, { extra = null } = {}) {
-  const tiles = canTiles(answerForTiles) ? ['tiles'] : [];
+export function stepsFor(w, answerForTiles, { extra = null, commaSyn = true } = {}) {
+  const tiles = canTiles(answerForTiles, commaSyn) ? ['tiles'] : [];
   const zin = extra ? [extra] : [];
   if (w.lvl <= 0) return ['intro', 'mc', ...tiles, 'type', ...zin];
   if (w.lvl === 1) return ['mc', ...tiles, 'type', ...zin];
@@ -173,7 +173,7 @@ export function buildQueue(lists, { maxNew = 5, now = Date.now(), onlyIds = null
       wordId: w.id,
       listId: list.id,
       dir,
-      steps: stepsFor(w, answerOf(w, dir), { extra: sentenceStep(w, list) }),
+      steps: stepsFor(w, answerOf(w, dir), { extra: sentenceStep(w, list), commaSyn: list.commaSyn }),
       stepIdx: 0,
       misses: 0,
       relearn: false,

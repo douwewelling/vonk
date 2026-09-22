@@ -216,7 +216,7 @@ export function exMC(stage, host, { word, list, dir, pool, golden = false, varia
  */
 function typeCore(stage, host, { head, answer, al, list, long = false, placeholder = 'Typ je antwoord' }) {
   const chars = lang(al).chars;
-  const core = coreAnswer(answer);
+  const core = coreAnswer(answer, { commaSyn: list.commaSyn });
 
   host.innerHTML = `<div class="q-wrap">
     ${head}
@@ -387,7 +387,7 @@ export function exTiles(stage, host, { word, list, dir, golden = false }) {
   const prompt = promptOf(word, dir);
   const answer = answerOf(word, dir);
   const [pl] = langsOf(list, dir);
-  const target = coreAnswer(answer);
+  const target = coreAnswer(answer, { commaSyn: list.commaSyn });
   const chars = [...target];
   const letters = chars.filter((c) => c !== ' ');
   const extra = letters.length >= 4 ? (letters.length >= 8 ? 2 : 1) : 0;

@@ -3,7 +3,7 @@
 import { state, save, findWord } from '../store.js';
 import { sleep, pick, plural, randomInt } from '../util.js';
 import { alertDialog, toast } from '../ui.js';
-import { buildQueue, remainingSteps, passStep, failStep, stepsFor, answerOf } from '../srs.js';
+import { buildQueue, remainingSteps, passStep, failStep, stepsFor, answerOf, sentenceStep } from '../srs.js';
 import { checkAchievements } from '../rewards.js';
 import { openStage } from './stage.js';
 import { Scorer } from './scoring.js';
@@ -153,7 +153,7 @@ export async function startLearn({ lists, onlyIds = null }) {
       const res = failStep(word, step);
       item.misses++;
       if (res === 'lapse') {
-        item.steps = stepsFor(word, answerOf(word, item.dir));
+        item.steps = stepsFor(word, answerOf(word, item.dir), { extra: sentenceStep(word, list), commaSyn: list.commaSyn });
         item.stepIdx = 0;
         item.relearn = true;
       }

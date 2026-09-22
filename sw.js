@@ -1,6 +1,6 @@
 // Service worker: Vonk werkt ook offline zodra je hem één keer hebt geopend.
 
-const VERSION = 'vonk-v2';
+const VERSION = 'vonk-v3';
 const CORE = [
   './',
   'index.html',
