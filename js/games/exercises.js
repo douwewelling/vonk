@@ -212,9 +212,10 @@ export function exMC(stage, host, { word, list, dir, pool, golden = false, varia
 
 /**
  * Het gedeelde typ-scherm: gebruikt voor losse woorden, hele zinnen en invulzinnen.
- * @param {{head: string, answer: string, al: string, long?: boolean, placeholder?: string}} o
+ * @param {{head: string, answer: string, al: string, long?: boolean, nlArticle?: boolean, placeholder?: string}} o
+ *   nlArticle: een Nederlands lidwoord vooraan mag weg (alleen bij losse woorden, niet bij zinnen)
  */
-function typeCore(stage, host, { head, answer, al, list, long = false, placeholder = 'Typ je antwoord' }) {
+function typeCore(stage, host, { head, answer, al, list, long = false, nlArticle = false, placeholder = 'Typ je antwoord' }) {
   const chars = lang(al).chars;
   const core = coreAnswer(answer, { commaSyn: list.commaSyn });
 
@@ -281,7 +282,12 @@ function typeCore(stage, host, { head, answer, al, list, long = false, placehold
           haptic('light');
           return;
         }
-        const res = checkAnswer(val, answer, { tolerance: state.settings.tolerance, accents: state.settings.accents, commaSyn: list.commaSyn });
+        const res = checkAnswer(val, answer, {
+          tolerance: state.settings.tolerance,
+          accents: state.settings.accents,
+          commaSyn: list.commaSyn,
+          nlArticle,
+        });
         input.classList.add(res.ok ? 'ok' : 'bad');
         finish({ correct: res.ok, close: res.ok && !res.exact, note: res.note, expected: res.expected, given: val });
       });
@@ -327,7 +333,7 @@ export function exType(stage, host, { word, list, dir, golden = false, compact =
   const head = `${kicker(label || toLang(al), golden)}
     ${card({ prompt, promptLang: pl, golden, compact })}
     ${exampleBlock(word, list, answer, prompt)}`;
-  const p = typeCore(stage, host, { head, answer, al, list, long: isSentence(answer) });
+  const p = typeCore(stage, host, { head, answer, al, list, long: isSentence(answer), nlArticle: al === 'nl' });
   wireSpeak(host, { p: [prompt, pl] });
   maybeAutoSpeak(prompt, pl);
   return p;

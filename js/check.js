@@ -60,14 +60,22 @@ export function alternatives(answer, { commaSyn = true } = {}) {
   return splitOutsideParens(answer, seps);
 }
 
-/** Alle geldige schrijfwijzen voor een antwoord. "(de) leraar / docent" → leraar, de leraar, docent. */
-export function variants(answer, { commaSyn = true } = {}) {
+// Nederlandse lidwoorden die je in een Nederlandse vertaling mag weglaten ("familieleden" voor "de familieleden")
+const NL_ARTICLE = /^(de|het|een) (?=\S)/;
+
+/**
+ * Alle geldige schrijfwijzen voor een antwoord. "(de) leraar / docent" → leraar, de leraar, docent.
+ * Met nlArticle mag een Nederlands lidwoord aan het begin weg: "de familieleden" → ook "familieleden".
+ */
+export function variants(answer, { commaSyn = true, nlArticle = false } = {}) {
   const alts = alternatives(answer, { commaSyn });
   const out = new Set();
   for (const alt of alts) {
     for (const v of expandOptional(alt)) {
       const n = normalize(v);
-      if (n) out.add(n);
+      if (!n) continue;
+      out.add(n);
+      if (nlArticle && NL_ARTICLE.test(n)) out.add(n.replace(NL_ARTICLE, ''));
     }
   }
   const full = normalize(String(answer).replace(/[()]/g, ''));
@@ -242,11 +250,29 @@ function allowedTypos(len, tolerance) {
 }
 
 /**
+ * Kijkt een getypt antwoord na. Je mag één van de goede antwoorden geven, of er meerdere
+ * in willekeurige volgorde ("de leden van een groepering, de familieleden"): dan moet elk deel kloppen.
+ * @param {{tolerance?: string, accents?: string, commaSyn?: boolean, nlArticle?: boolean}} [opts]
+ *   nlArticle: het antwoord is Nederlands, dus "de", "het" of "een" vooraan mag weg.
  * @returns {{ok: boolean, exact: boolean, note: null|'typo'|'accent', expected: string}}
  */
-export function checkAnswer(input, answer, { tolerance = 'normaal', accents = 'soepel', commaSyn = true } = {}) {
+export function checkAnswer(input, answer, opts = {}) {
+  const whole = checkOne(input, answer, opts);
+  if (whole.ok) return whole;
+
+  // Elk deel moet op zichzelf een goed antwoord zijn, dus "go, went" wordt nooit goed voor "go, went, gone"
+  const parts = splitOutsideParens(input, '/;|,');
+  if (parts.length < 2) return whole;
+  const each = parts.map((p) => checkOne(p, answer, opts));
+  if (!each.every((r) => r.ok)) return whole;
+  const off = each.find((r) => !r.exact);
+  if (!off) return { ok: true, exact: true, note: null, expected: whole.expected };
+  return { ...off, expected: each.map((r, i) => (r.exact ? normalize(parts[i]) : r.expected)).join(', ') };
+}
+
+function checkOne(input, answer, { tolerance = 'normaal', accents = 'soepel', commaSyn = true, nlArticle = false } = {}) {
   const given = normalize(input);
-  const vars = variants(answer, { commaSyn });
+  const vars = variants(answer, { commaSyn, nlArticle });
   const shown = displayAnswer(answer);
   if (!given) return { ok: false, exact: false, note: null, expected: shown };
 

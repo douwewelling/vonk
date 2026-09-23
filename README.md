@@ -57,6 +57,8 @@ aujourd'hui = vandaag
 - Tekst **tussen haakjes** mag je weglaten: `(de) leraar` rekent ook `leraar` goed.
 - Met **/** geef je meerdere goede antwoorden: `leraar / docent`.
 - Een **komma** betekent synoniemen: bij `billijk, wat gevraagd kan worden` is `billijk` goed en `wat gevraagd kan worden` ook. Een synoniem van meerdere woorden moet wel compleet zijn: `wat gevraagd` is fout. Zet de komma-regel per lijst uit voor rijtjes als `go, went, gone`. In echte zinnen (met een punt aan het eind) is een komma nooit een scheiding.
+- Je mag **één of meer** goede antwoorden geven, in elke volgorde: `de leden van een groepering, de familieleden` is ook goed. Elk deel moet dan wel kloppen.
+- In een **Nederlands** antwoord mag je `de`, `het` of `een` vooraan weglaten (`familieleden` voor `de familieleden`). In de vreemde taal telt het lidwoord wel: `Angehörigen` is fout, `die Angehörigen` is goed.
 - Een tikfout mag, maar een heel woord vergeten of toevoegen telt altijd als fout.
 - Staat de vertaling links? Zet dan **Kolommen omdraaien** aan.
 - Kleine tikfouten en vergeten accenten worden goed gerekend, maar je ziet wel de juiste spelling. Hoe streng dat is, stel je in bij **Profiel**.
