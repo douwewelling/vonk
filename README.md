@@ -84,9 +84,11 @@ Bij een invulzin is zowel de vorm uit de zin goed (*Beziehungen*) als het woord 
 
 ## Op je telefoon spelen
 
+**Speel direct:** <https://douwewelling.github.io/vonk/>
+
 **Thuis via wifi (snelst):** start Vonk op je computer met `npm start`. In het venster verschijnt ook een adres zoals `http://192.168.1.23:5173`. Open dat op je telefoon (die moet op hetzelfde wifi-netwerk zitten). Vraagt Windows om toegang voor Node.js, kies dan *Privénetwerken*.
 
-**Overal en offline:** zet de map online op een gratis statische host met https, bijvoorbeeld GitHub Pages (werkt gratis als de repo publiek is), Netlify of Cloudflare Pages. Open de link daarna op je telefoon:
+**Als app op je beginscherm:** open de link hierboven op je telefoon:
 
 1. iPhone: open de link in **Safari**, tik op **Deel** → **Zet op beginscherm**.
 2. Android: open de link in **Chrome**, tik op **⋮** → **App installeren**.
